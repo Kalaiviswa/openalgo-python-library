@@ -396,6 +396,8 @@ class OptionsAPI(BaseAPI):
             - action (str): BUY or SELL. Required.
             - quantity (int/str): Quantity (must be multiple of lot size). Required.
             Optional leg parameters:
+            - expiry_date (str): Per-leg expiry in DDMMMYY format for diagonal/calendar spreads.
+                               Overrides request-level expiry_date.
             - pricetype (str): Price type (MARKET/LIMIT/SL/SL-M). Default: MARKET.
             - product (str): Product type (MIS/NRML). Default: MIS.
             - price (float): Limit price for LIMIT orders.
@@ -450,15 +452,29 @@ class OptionsAPI(BaseAPI):
                 ]
             )
 
-            # Bull Call Spread
+            # Calendar Spread (different expiries, same strike)
             result = api.optionsmultiorder(
-                strategy="Bull Call Spread",
+                strategy="Calendar Spread",
                 underlying="NIFTY",
                 exchange="NSE_INDEX",
-                expiry_date="25NOV25",
                 legs=[
-                    {"offset": "ATM", "option_type": "CE", "action": "BUY", "quantity": 75},
-                    {"offset": "OTM3", "option_type": "CE", "action": "SELL", "quantity": 75}
+                    {"offset": "ATM", "option_type": "CE", "action": "BUY", "quantity": 75,
+                     "expiry_date": "30DEC25"},
+                    {"offset": "ATM", "option_type": "CE", "action": "SELL", "quantity": 75,
+                     "expiry_date": "25NOV25"}
+                ]
+            )
+
+            # Diagonal Spread (different expiries and strikes)
+            result = api.optionsmultiorder(
+                strategy="Diagonal Spread",
+                underlying="NIFTY",
+                exchange="NSE_INDEX",
+                legs=[
+                    {"offset": "ITM2", "option_type": "CE", "action": "BUY", "quantity": 75,
+                     "expiry_date": "30DEC25"},
+                    {"offset": "OTM2", "option_type": "CE", "action": "SELL", "quantity": 75,
+                     "expiry_date": "25NOV25"}
                 ]
             )
         """
@@ -481,6 +497,8 @@ class OptionsAPI(BaseAPI):
             }
 
             # Add optional leg parameters
+            if "expiry_date" in leg:
+                processed_leg["expiry_date"] = leg["expiry_date"]
             if "pricetype" in leg:
                 processed_leg["pricetype"] = leg["pricetype"]
             if "product" in leg:
