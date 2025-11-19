@@ -379,3 +379,135 @@ class OptionsAPI(BaseAPI):
             payload["expiry_date"] = expiry_date
 
         return self._make_request("optionsymbol", payload)
+
+    def optionsmultiorder(self, *, strategy, underlying, exchange, legs, expiry_date=None, strike_int=None):
+        """
+        Place Multiple Option Legs with Common Underlying by Auto-Resolving Symbols based on Offset.
+        BUY legs are executed first for margin efficiency, then SELL legs.
+
+        Parameters:
+        - strategy (str): Strategy name. Required.
+        - underlying (str): Underlying symbol (e.g., NIFTY, BANKNIFTY, NIFTY28OCT25FUT). Required.
+        - exchange (str): Exchange code (NSE_INDEX, NSE, NFO, BSE_INDEX, BSE, BFO). Required.
+        - legs (list): Array of leg objects (1-20 legs). Required.
+            Each leg must contain:
+            - offset (str): Strike offset (ATM, ITM1-ITM50, OTM1-OTM50). Required.
+            - option_type (str): Option type (CE for Call, PE for Put). Required.
+            - action (str): BUY or SELL. Required.
+            - quantity (int/str): Quantity (must be multiple of lot size). Required.
+            Optional leg parameters:
+            - pricetype (str): Price type (MARKET/LIMIT/SL/SL-M). Default: MARKET.
+            - product (str): Product type (MIS/NRML). Default: MIS.
+            - price (float): Limit price for LIMIT orders.
+            - trigger_price (float): Trigger price for SL orders.
+            - disclosed_quantity (int): Disclosed quantity.
+        - expiry_date (str, optional): Expiry date in DDMMMYY format (e.g., 25NOV25).
+                                      Optional if underlying includes expiry.
+        - strike_int (int, optional): DEPRECATED - Strike interval. Auto-detected.
+
+        Returns:
+        dict: JSON response containing:
+            - status: success/error
+            - underlying: Underlying symbol from request
+            - underlying_ltp: Last Traded Price of underlying
+            - mode: Trading mode (analyze/live) - only in Analyze Mode
+            - results: Array of leg results with:
+                - leg: Leg number
+                - symbol: Resolved option symbol
+                - offset: Strike offset
+                - option_type: CE/PE
+                - action: BUY/SELL
+                - status: success/error
+                - orderid: Broker order ID (or SB-xxx for analyze mode)
+                - message: Error message (only if error)
+
+        Example:
+            # Iron Condor
+            result = api.optionsmultiorder(
+                strategy="Iron Condor",
+                underlying="NIFTY",
+                exchange="NSE_INDEX",
+                expiry_date="25NOV25",
+                legs=[
+                    {"offset": "OTM10", "option_type": "CE", "action": "BUY", "quantity": 75},
+                    {"offset": "OTM10", "option_type": "PE", "action": "BUY", "quantity": 75},
+                    {"offset": "OTM5", "option_type": "CE", "action": "SELL", "quantity": 75},
+                    {"offset": "OTM5", "option_type": "PE", "action": "SELL", "quantity": 75}
+                ]
+            )
+
+            # Long Straddle with LIMIT orders
+            result = api.optionsmultiorder(
+                strategy="Long Straddle",
+                underlying="BANKNIFTY",
+                exchange="NSE_INDEX",
+                expiry_date="25NOV25",
+                legs=[
+                    {"offset": "ATM", "option_type": "CE", "action": "BUY", "quantity": 30,
+                     "pricetype": "LIMIT", "price": 250.0},
+                    {"offset": "ATM", "option_type": "PE", "action": "BUY", "quantity": 30,
+                     "pricetype": "LIMIT", "price": 250.0}
+                ]
+            )
+
+            # Bull Call Spread
+            result = api.optionsmultiorder(
+                strategy="Bull Call Spread",
+                underlying="NIFTY",
+                exchange="NSE_INDEX",
+                expiry_date="25NOV25",
+                legs=[
+                    {"offset": "ATM", "option_type": "CE", "action": "BUY", "quantity": 75},
+                    {"offset": "OTM3", "option_type": "CE", "action": "SELL", "quantity": 75}
+                ]
+            )
+        """
+        # Deprecation warning for strike_int
+        if strike_int is not None:
+            warnings.warn(
+                "The 'strike_int' parameter is deprecated and will be removed in future versions.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        # Process legs - convert numeric values to appropriate types
+        processed_legs = []
+        for leg in legs:
+            processed_leg = {
+                "offset": leg["offset"],
+                "option_type": leg["option_type"],
+                "action": leg["action"],
+                "quantity": int(leg["quantity"])
+            }
+
+            # Add optional leg parameters
+            if "pricetype" in leg:
+                processed_leg["pricetype"] = leg["pricetype"]
+            if "product" in leg:
+                processed_leg["product"] = leg["product"]
+            if "price" in leg:
+                processed_leg["price"] = float(leg["price"])
+            if "trigger_price" in leg:
+                processed_leg["trigger_price"] = float(leg["trigger_price"])
+            if "disclosed_quantity" in leg:
+                processed_leg["disclosed_quantity"] = int(leg["disclosed_quantity"])
+
+            processed_legs.append(processed_leg)
+
+        payload = {
+            "apikey": self.api_key,
+            "strategy": strategy,
+            "underlying": underlying,
+            "exchange": exchange,
+            "legs": processed_legs
+        }
+
+        # Add strike_int if provided (deprecated)
+        if strike_int is not None:
+            payload["strike_int"] = int(strike_int)
+
+        # Add expiry_date if provided
+        if expiry_date is not None:
+            payload["expiry_date"] = expiry_date
+
+        return self._make_request("optionsmultiorder", payload)
