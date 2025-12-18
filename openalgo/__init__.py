@@ -87,7 +87,7 @@ class api(OrderAPI, DataAPI, AccountAPI, FeedAPI, OptionsAPI, TelegramAPI, Utili
         self.quotes_callback = None
         self.depth_callback = None
 
-__version__ = "1.0.43"
+__version__ = "1.0.44"
 
 # Export main components for easy access
 __all__ = ['api', 'Strategy', 'ta', 'nbjit', 'prange']
